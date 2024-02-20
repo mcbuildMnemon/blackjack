@@ -1,1 +1,293 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlackJack</title>
+  <style>
+    * {
+      color: #000;
+    }
+    #result {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>BlackJack</h1>
+  <code>Version 7</code><br><br>
+  <div id="stats">
+    Wins: <span id="wins">0</span> | Losses: <span id="losses">0</span> | Ties: <span id="ties">0</span> | Money: $<span id="money">50</span>
+  </div>
+  <hr>
+  <button onclick="startGame()">Start Game</button>
+  <div id="game" style="display: none;">
+    <h2>Your Hand:</h2>
+    <div id="player-hand"></div>
+    <h2>Dealer's Hand:</h2>
+    <div id="dealer-hand"></div>
+    <div id="result"></div>
+    <label for="bet">Bet:</label>
+    <input type="number" id="bet" min="1" max="50" value="10">
+    <button onclick="hit()">Hit</button>
+    <button onclick="stand()">Stand</button>
+    <button onclick="double()">Double</button>
+    <button onclick="split()">Split</button>
+    <button onclick="surrender()">Surrender</button>
+    <button onclick="insurance()">Insurance</button>
+  </div>
+ 
+  <script>
+    const suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
+    const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 'Queen', 'King', 'Ace'];
+ 
+    let deck = [];
+    let playerHands = [[]]; // Allow for multiple hands
+    let dealerHand = [];
+    let wins = 0;
+    let losses = 0;
+    let ties = 0;
+    let money = 50;
+    let result = document.getElementById('result');
+    let winsElement = document.getElementById('wins');
+    let lossesElement = document.getElementById('losses');
+    let tiesElement = document.getElementById('ties');
+    let moneyElement = document.getElementById('money');
+ 
+    // Load stats from local storage if available
+    if (localStorage.getItem('stats')) {
+      const savedStats = JSON.parse(localStorage.getItem('stats'));
+      wins = savedStats.wins;
+      losses = savedStats.losses;
+      ties = savedStats.ties;
+      money = savedStats.money;
+    }
+ 
+    function updateStats() {
+      winsElement.textContent = wins;
+      lossesElement.textContent = losses;
+      tiesElement.textContent = ties;
+      moneyElement.textContent = money;
+      // Save stats to local storage
+      localStorage.setItem('stats', JSON.stringify({ wins, losses, ties, money }));
+    }
+ 
+    function createDeck() {
+      for (let suitIdx = 0; suitIdx < suits.length; suitIdx++) {
+        for (let valueIdx = 0; valueIdx < values.length; valueIdx++) {
+          const card = {
+            suit: suits[suitIdx],
+            value: values[valueIdx]
+          };
+          deck.push(card);
+        }
+      }
+    }
+ 
+    function shuffle() {
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+    }
+ 
+    function dealCard(hand) {
+      const card = deck.pop();
+      hand.push(card);
+    }
+ 
+    function displayHand(hand, element) {
+      let handString = hand.map(card => `${card.value} of ${card.suit}`).join(', ');
+      let totalValue = calculateHandValue(hand);
+      element.innerHTML = `${handString} (Total: ${totalValue})`;
+    }
+ 
+    function calculateHandValue(hand) {
+      let sum = 0;
+      let numAces = 0;
+      for (const card of hand) {
+        if (card.value === 'Ace') {
+          numAces++;
+          sum += 11;
+        } else if (['Jack', 'Queen', 'King'].includes(card.value)) {
+          sum += 10;
+        } else {
+          sum += parseInt(card.value);
+        }
+      }
+      while (sum > 21 && numAces > 0) {
+        sum -= 10;
+        numAces--;
+      }
+      return sum;
+    }
+ 
+    function startGame() {
+      // Clear previous result message
+      result.textContent = '';
+      playerHands = [[]]; // Reset player's hands
+      createDeck();
+      shuffle();
+ 
+      playerHands[0] = []; // Initialize player's hand
+      dealerHand = [];
+ 
+      dealCard(playerHands[0]);
+      dealCard(dealerHand);
+      dealCard(playerHands[0]);
+      dealCard(dealerHand);
+ 
+      displayHand(playerHands[0], document.getElementById('player-hand'));
+      displayHand(dealerHand.slice(0, 1), document.getElementById('dealer-hand'));
+ 
+      const playerTotal = calculateHandValue(playerHands[0]);
+      if (playerTotal === 21) {
+        endGame('Blackjack! Player wins!');
+        return; // Stop the function execution
+      }
+ 
+      document.getElementById('game').style.display = 'block';
+    }
+ 
+    function hit() {
+      // Check if the game is over
+      if (!result.textContent) {
+        dealCard(playerHands[0]);
+        displayHand(playerHands[0], document.getElementById('player-hand'));
+        if (calculateHandValue(playerHands[0]) > 21) {
+          endGame('Player busts! Dealer wins.');
+        }
+      }
+    }
+ 
+    function stand() {
+      // Check if the game is over
+      if (!result.textContent) {
+        while (calculateHandValue(dealerHand) < 17) {
+          dealCard(dealerHand);
+          displayHand(dealerHand, document.getElementById('dealer-hand'));
+        }
+        endGame();
+      }
+    }
+ 
+function double() {
+  // Check if the game is over
+  if (!result.textContent) {
+    const bet = parseInt(document.getElementById('bet').value);
+    if (money >= bet) {
+      // Double the bet
+      document.getElementById('bet').value = bet * 2;
+      // Deal one more card
+      dealCard(playerHands[0]);
+      displayHand(playerHands[0], document.getElementById('player-hand'));
+      // End the game
+      endGame();
+    } else {
+      alert("Not enough money to double the bet.");
+    }
+  }
+}
+ 
+    function insurance() {
+  // Check if the dealer's face-up card is an Ace
+  const dealerUpCard = dealerHand[0];
+  if (dealerUpCard.value === 'Ace') {
+    // Allow the player to place an insurance bet
+    const bet = parseInt(document.getElementById('bet').value);
+    const insuranceBet = prompt(`The dealer's up card is an Ace. Place your insurance bet (up to ${bet / 2}):`);
+    if (insuranceBet !== null && insuranceBet !== '') {
+      const insuranceAmount = parseInt(insuranceBet);
+      if (!isNaN(insuranceAmount) && insuranceAmount <= bet / 2 && insuranceAmount <= money) {
+        // Process the insurance bet
+        if (dealerHasBlackjack()) {
+          // Pay 2 to 1 for insurance bet if the dealer has a blackjack
+          money += insuranceAmount * 2;
+          updateStats();
+          alert("The dealer has a blackjack! Your insurance bet wins.");
+        } else {
+          // Player loses the insurance bet
+          money -= insuranceAmount;
+          updateStats();
+          alert("The dealer does not have a blackjack. You lose your insurance bet.");
+        }
+      } else {
+        alert("Invalid insurance bet amount. Please enter a valid amount.");
+      }
+    }
+  } else {
+    alert("Insurance is only available when the dealer's up card is an Ace.");
+  }
+}
+ 
+function dealerHasBlackjack() {
+  // Check if the dealer has a blackjack (10-value card or face card as the second card)
+  return (dealerHand[0].value === 'Ace' && ['10', 'Jack', 'Queen', 'King'].includes(dealerHand[1].value)) ||
+         (dealerHand[1].value === 'Ace' && ['10', 'Jack', 'Queen', 'King'].includes(dealerHand[0].value));
+}
+ 
+ 
+    function split() {
+      const hand = playerHands[0];
+      if (hand.length === 2 && hand[0].value === hand[1].value) {
+        // Create two separate hands with one card each
+        playerHands = [ [hand[0]], [hand[1]] ];
+        // Deal a new card to each hand
+        dealCard(playerHands[0]);
+        dealCard(playerHands[1]);
+        // Display both hands
+        displayHand(playerHands[0], document.getElementById('player-hand'));
+        displayHand(playerHands[1], document.getElementById('dealer-hand'));
+      } else {
+        alert("Split is only allowed when you have two cards with the same value.");
+      }
+    }
+ 
+    function surrender() {
+      // Deduct half of the bet and end the game
+      const bet = parseInt(document.getElementById('bet').value);
+      money -= bet / 2;
+      endGame('Player surrenders! Half of the bet is deducted.');
+    }
+ 
+    function endGame(message = '') {
+      const dealerTotal = calculateHandValue(dealerHand);
+      const bet = parseInt(document.getElementById('bet').value);
+ 
+      // Reveal the full dealer's hand
+      displayHand(dealerHand, document.getElementById('dealer-hand'));
+ 
+      if (message) {
+        result.textContent = message;
+        losses++;
+        money -= bet;
+      } else {
+        for (let i = 0; i < playerHands.length; i++) {
+          const playerTotal = calculateHandValue(playerHands[i]);
+          if (playerTotal > 21) {
+            result.textContent += `Hand ${i + 1}: Player busts! `;
+            losses++;
+            money -= bet;
+          } else if (dealerTotal > 21 || playerTotal > dealerTotal) {
+            result.textContent += `Hand ${i + 1}: Player wins! `;
+            wins++;
+            money += bet;
+          } else if (playerTotal < dealerTotal) {
+            result.textContent += `Hand ${i + 1}: Dealer wins! `;
+            losses++;
+            money -= bet;
+          } else {
+            result.textContent += `Hand ${i + 1}: It's a tie! `;
+            ties++;
+          }
+        }
+      }
+ 
+      updateStats();
+    }
+ 
+    updateStats();
+  </script>
+</body>
+</html>
